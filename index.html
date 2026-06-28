@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rummy">
+<title>Rummy Scorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #0d0d1a; color: #e2e8f0; font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; min-height: 100vh; padding-bottom: 40px; }
+  
+  .screen { display: none; max-width: 480px; margin: 0 auto; padding: 20px 16px; }
+  .screen.active { display: block; }
+
+  h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+  .subtitle { font-size: 12px; color: #475569; font-family: monospace; margin-top: 4px; }
+  .section-label { font-size: 11px; color: #a78bfa; font-family: monospace; letter-spacing: 2px; margin-bottom: 12px; }
+
+  .card { background: #12122a; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+  .card-dark { background: #1a1a2e; border-radius: 16px; padding: 20px 16px; margin-bottom: 16px; }
+
+  /* Player select */
+  .player-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1e1e3a; cursor: pointer; }
+  .player-toggle:last-child { border-bottom: none; }
+  .player-name-sel { font-size: 15px; font-weight: 600; }
+  .toggle-box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid #a78bfa; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+  .toggle-box.on { background: #a78bfa; }
+  .toggle-box.on::after { content: '✓'; color: white; font-size: 14px; font-weight: 900; }
+
+  /* Player name editor */
+  .player-name-input { background: #1e1e3a; border: 2px solid #3d3d5c; border-radius: 8px; color: #e2e8f0; font-size: 14px; padding: 4px 8px; outline: none; width: 160px; }
+  .player-name-input:focus { border-color: #a78bfa; }
+  .edit-names-btn { font-size: 11px; color: #a78bfa; background: none; border: none; cursor: pointer; font-family: monospace; letter-spacing: 1px; padding: 0; margin-top: 6px; }
+
+  /* Scoreboard */
+  .player-row { margin-bottom: 12px; }
+  .player-row.out { opacity: 0.3; }
+  .player-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .player-label { font-size: 13px; font-weight: 700; }
+  .player-score { font-family: monospace; font-weight: 800; font-size: 14px; }
+  .player-score.danger { color: #f87171; }
+  .player-score.leading { color: #4ade80; }
+  .score-limit { font-family: monospace; font-size: 10px; color: #475569; margin-left: 6px; }
+  .bar-bg { background: #2d2d4e; border-radius: 4px; height: 6px; }
+  .bar-fill { height: 6px; border-radius: 4px; transition: width 0.4s ease; }
+
+  /* Round entry */
+  .player-entry { margin-bottom: 16px; }
+  .entry-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #e2e8f0; margin-bottom: 8px; }
+  .btn-row { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+  .action-btn { border-radius: 8px; padding: 8px 0; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: 2px solid; flex: 1; text-align: center; }
+  .action-btn.w { border-color: #16a34a; color: #16a34a; background: transparent; }
+  .action-btn.w.active { background: #16a34a; color: #fff; opacity: 1 !important; }
+  .action-btn.s { border-color: #d97706; color: #d97706; background: transparent; }
+  .action-btn.s.active { background: #d97706; color: #fff; opacity: 1 !important; }
+  .action-btn.ms { border-color: #7c3aed; color: #7c3aed; background: transparent; }
+  .action-btn.ms.active { background: #7c3aed; color: #fff; opacity: 1 !important; }
+  .action-btn:not(.active) { opacity: 0.4; }
+  .pts-input { width: 56px; background: #1e1e3a; border: 2px solid #3d3d5c; border-radius: 8px; color: #e2e8f0; font-size: 15px; padding: 7px 4px; text-align: center; outline: none; flex-shrink: 0; }
+  .pts-input:focus { border-color: #a78bfa; background: #2d2d4e; }
+  .pts-preview { font-family: monospace; font-size: 12px; font-weight: 700; color: #94a3b8; background: #2d2d4e; border-radius: 6px; padding: 4px 8px; flex-shrink: 0; min-width: 36px; text-align: center; }
+  .pts-preview.w { color: #4ade80; }
+  .pts-preview.s { color: #fbbf24; }
+  .pts-preview.ms { color: #c4b5fd; }
+
+  /* Buttons */
+  .btn-primary { width: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); color: #fff; border: none; border-radius: 10px; padding: 13px 0; font-size: 15px; font-weight: 800; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; }
+  .btn-primary:disabled { background: #2d2d4e; color: #555; cursor: not-allowed; }
+  .btn-secondary { flex: 1; background: #1e1e3a; border: 2px solid #334155; color: #94a3b8; border-radius: 10px; padding: 11px 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-secondary:disabled { background: #14142a; border-color: #1e1e3a; color: #2d2d4e; cursor: not-allowed; }
+  .btn-danger { flex: 1; background: #1e1e3a; border: 2px solid #334155; color: #94a3b8; border-radius: 10px; padding: 11px 0; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .btn-danger.confirm { background: #7f1d1d; border-color: #ef4444; color: #fca5a5; }
+  .ctrl-row { display: flex; gap: 10px; margin-bottom: 16px; }
+
+  /* Alert */
+  .alert { background: #7f1d1d; border: 2px solid #ef4444; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; color: #fca5a5; font-weight: 800; font-size: 14px; text-align: center; }
+  .warn-alert { background: #78350f; border: 2px solid #f59e0b; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; color: #fde68a; font-weight: 800; font-size: 14px; text-align: center; }
+  .winner-banner { background: linear-gradient(90deg,#15803d,#166534); border: 2px solid #4ade80; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; }
+  .winner-banner h2 { color: #4ade80; font-size: 20px; font-weight: 900; }
+  .winner-banner p { color: #86efac; font-size: 13px; margin-top: 4px; }
+
+  /* Log table */
+  .log-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace; }
+  .log-table th { color: #64748b; text-align: center; padding-bottom: 8px; padding: 4px 8px; white-space: nowrap; }
+  .log-table th:first-child { text-align: left; }
+  .log-table td { text-align: center; padding: 5px 8px; border-top: 1px solid #1e1e3a; vertical-align: top; white-space: nowrap; }
+  .log-table td:first-child { text-align: left; color: #475569; }
+  .delta { font-weight: 600; }
+  .delta.w { color: #4ade80; font-weight: 800; }
+  .delta.s { color: #fbbf24; }
+  .delta.ms { color: #c4b5fd; }
+  .running { color: #475569; font-size: 10px; margin-top: 2px; }
+
+  /* History screen */
+  .game-card { background: #1a1a2e; border-radius: 12px; padding: 14px; margin-bottom: 12px; cursor: pointer; }
+  .game-date { font-size: 11px; color: #475569; font-family: monospace; margin-bottom: 6px; }
+  .game-title { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+  .game-meta { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .game-winner { color: #4ade80; font-weight: 700; }
+  .game-scores { margin-top: 10px; border-top: 1px solid #2d2d4e; padding-top: 10px; display: none; }
+  .game-scores.open { display: block; }
+  .score-row { display: flex; justify-content: space-between; font-size: 12px; font-family: monospace; padding: 3px 0; color: #94a3b8; }
+  .score-row.winner-row { color: #4ade80; font-weight: 700; }
+  .empty-state { text-align: center; color: #475569; padding: 40px 0; font-size: 14px; }
+
+  /* Draft indicator */
+  .draft-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; margin-left: 6px; vertical-align: middle; }
+
+  /* Nav */
+  .nav { display: flex; gap: 2px; background: #12122a; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
+  .nav-btn { flex: 1; padding: 9px 0; border: none; background: transparent; color: #64748b; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: 9px; transition: all 0.2s; }
+  .nav-btn.active { background: #2d2d4e; color: #e2e8f0; }
+
+  .header { margin-bottom: 20px; }
+  .divider { height: 1px; background: #1e1e3a; margin: 16px 0; }
+  .overflow-x { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<!-- PLAYER SELECT SCREEN -->
+<div class="screen active" id="screen-setup">
+  <div class="header">
+    <h1>🃏 Rummy</h1>
+    <p class="subtitle">Select who's playing</p>
+  </div>
+  <div class="card" id="player-select-list"></div>
+  <button class="edit-names-btn" onclick="toggleNameEditor()" id="edit-names-toggle">✏️ EDIT PLAYER NAMES</button>
+  <div id="name-editor" style="display:none; margin: 12px 0;">
+    <div class="card" id="name-editor-list"></div>
+    <button class="btn-primary" style="margin-bottom:12px" onclick="saveNames()">Save Names</button>
+  </div>
+  <button class="btn-primary" style="margin-top:12px" id="start-btn" onclick="startGame()">Start Game</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="screen" id="screen-game">
+  <div class="header">
+    <h1>🃏 Rummy</h1>
+    <p class="subtitle" id="game-subtitle">S = +25 &nbsp;|&nbsp; MS = +50 &nbsp;|&nbsp; W = +0 &nbsp;|&nbsp; Out after 250</p>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="showTab('score')">Scores</button>
+    <button class="nav-btn" onclick="showTab('round')">Round</button>
+    <button class="nav-btn" onclick="showTab('log')">Log</button>
+  </div>
+
+  <div id="tab-score">
+    <div id="bust-alert" style="display:none"></div>
+    <div id="winner-banner" style="display:none"></div>
+    <div class="card" id="scoreboard"></div>
+    <div class="ctrl-row">
+      <button class="btn-secondary" id="undo-btn" onclick="undoRound()" disabled>↩ Undo</button>
+      <button class="btn-secondary" id="save-btn" onclick="saveGame()">💾 Save</button>
+      <button class="btn-danger" id="reset-btn" onclick="resetClick()">Reset</button>
+    </div>
+  </div>
+
+  <div id="tab-round" style="display:none">
+    <div class="card-dark" id="round-entry"></div>
+  </div>
+
+  <div id="tab-log" style="display:none">
+    <div class="card" id="round-log"><p class="empty-state">No rounds yet.</p></div>
+  </div>
+</div>
+
+<!-- HISTORY SCREEN -->
+<div class="screen" id="screen-history">
+  <div class="header">
+    <h1>📋 History</h1>
+    <p class="subtitle">Saved games</p>
+  </div>
+  <div id="history-list"></div>
+  <button class="btn-secondary" style="width:100%;margin-top:8px" onclick="showScreen('game')">← Back</button>
+</div>
+
+<script>
+const DEFAULT_PLAYERS = ["Amais", "Mama", "Papa", "Big Papa", "Big Mama"];
+const SCOOP = 25, MIDSCOOP = 50, BUST = 250;
+
+// Load saved player names or fall back to defaults
+let ALL_PLAYERS = JSON.parse(localStorage.getItem('rummy_players') || 'null') || [...DEFAULT_PLAYERS];
+
+let activePlayers = [...ALL_PLAYERS];
+let scores = {};
+let history = [];
+let pendingEntry = {};
+let resetConfirm = false;
+let resetTimer = null;
+let nameEditorOpen = false;
+
+// ── SETUP ──────────────────────────────────────────────────────────────────
+
+function initSetup() {
+  activePlayers = [...ALL_PLAYERS];
+  renderSetup();
+}
+
+function renderSetup() {
+  const list = document.getElementById('player-select-list');
+  list.innerHTML = '';
+  ALL_PLAYERS.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'player-toggle';
+    div.onclick = () => togglePlayer(p);
+    const isOn = activePlayers.includes(p);
+    div.innerHTML = `<span class="player-name-sel">${p}</span><div class="toggle-box ${isOn ? 'on' : ''}" id="toggle-${p.replace(/\s/g,'_')}"></div>`;
+    list.appendChild(div);
+  });
+  renderNameEditor();
+}
+
+function toggleNameEditor() {
+  nameEditorOpen = !nameEditorOpen;
+  document.getElementById('name-editor').style.display = nameEditorOpen ? 'block' : 'none';
+  document.getElementById('edit-names-toggle').textContent = nameEditorOpen ? '✕ CANCEL' : '✏️ EDIT PLAYER NAMES';
+}
+
+function renderNameEditor() {
+  const editorList = document.getElementById('name-editor-list');
+  editorList.innerHTML = '';
+  ALL_PLAYERS.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e1e3a;';
+    row.innerHTML = `<span style="font-size:12px;color:#64748b;font-family:monospace;width:20px">${i+1}.</span>
+      <input class="player-name-input" id="name-input-${i}" value="${p}" maxlength="20" />`;
+    editorList.appendChild(row);
+  });
+}
+
+function saveNames() {
+  const newNames = ALL_PLAYERS.map((_, i) => {
+    const val = document.getElementById(`name-input-${i}`).value.trim();
+    return val || ALL_PLAYERS[i];
+  });
+  ALL_PLAYERS = newNames;
+  localStorage.setItem('rummy_players', JSON.stringify(ALL_PLAYERS));
+  activePlayers = [...ALL_PLAYERS];
+  toggleNameEditor();
+  renderSetup();
+}
+
+function togglePlayer(p) {
+  const id = p.replace(/\s/g,'_');
+  const box = document.getElementById('toggle-' + id);
+  if (activePlayers.includes(p)) {
+    if (activePlayers.length <= 2) return;
+    activePlayers = activePlayers.filter(x => x !== p);
+    box.className = 'toggle-box';
+  } else {
+    activePlayers.push(p);
+    box.className = 'toggle-box on';
+  }
+}
+
+function startGame() {
+  scores = Object.fromEntries(activePlayers.map(p => [p, 0]));
+  history = [];
+  pendingEntry = buildBlankEntry();
+  clearDraft();
+  showScreen('game');
+  renderAll();
+  showTab('round');
+}
+
+// ── CORE STATE ─────────────────────────────────────────────────────────────
+
+function buildBlankEntry() {
+  return Object.fromEntries(activePlayers.map(p => [p, { type: null, value: '' }]));
+}
+
+function eliminated() {
+  return activePlayers.filter(p => scores[p] > BUST);
+}
+
+function activeSorted() {
+  return [...activePlayers].sort((a, b) => scores[a] - scores[b]);
+}
+
+function minScore() {
+  const alive = activePlayers.filter(p => !eliminated().includes(p));
+  return alive.length ? Math.min(...alive.map(p => scores[p])) : 0;
+}
+
+function winner() {
+  const elim = eliminated();
+  if (elim.length === activePlayers.length - 1) {
+    return activePlayers.find(p => !elim.includes(p));
+  }
+  return null;
+}
+
+function hasPendingEntry() {
+  const elim = eliminated();
+  return activePlayers.filter(p => !elim.includes(p)).some(p => {
+    const e = pendingEntry[p];
+    return e && e.type !== null;
+  });
+}
+
+// ── DRAFT AUTO-SAVE ────────────────────────────────────────────────────────
+
+function saveDraft() {
+  const draft = { activePlayers, scores, history, pendingEntry };
+  localStorage.setItem('rummy_draft', JSON.stringify(draft));
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem('rummy_draft');
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+    if (!draft.activePlayers || !draft.scores || !draft.history) return false;
+    activePlayers = draft.activePlayers;
+    scores = draft.scores;
+    history = draft.history;
+    pendingEntry = draft.pendingEntry || buildBlankEntry();
+    return true;
+  } catch(e) { return false; }
+}
+
+function clearDraft() {
+  localStorage.removeItem('rummy_draft');
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+
+function renderAll() {
+  renderScoreboard();
+  renderRoundEntry();
+  renderLog();
+  renderAlerts();
+  updateSaveBtn();
+}
+
+function updateSaveBtn() {
+  const btn = document.getElementById('save-btn');
+  if (!btn) return;
+  const pending = hasPendingEntry();
+  btn.disabled = pending;
+  btn.title = pending ? 'Lock or clear current round first' : '';
+}
+
+function renderScoreboard() {
+  const elim = eliminated();
+  const sorted = activeSorted();
+  const min = minScore();
+  const sb = document.getElementById('scoreboard');
+
+  let html = `<div class="section-label">STANDINGS — ROUND ${history.length}</div>`;
+  sorted.forEach(p => {
+    const isOut = elim.includes(p);
+    const isLeading = !isOut && scores[p] === min;
+    const danger = !isOut && scores[p] >= 226;
+    const pct = Math.min(100, (scores[p] / BUST) * 100);
+    const barColor = isOut ? '#374151' : danger ? 'linear-gradient(90deg,#dc2626,#f87171)' : isLeading ? 'linear-gradient(90deg,#15803d,#4ade80)' : 'linear-gradient(90deg,#7c3aed,#a78bfa)';
+    const scoreColor = isOut ? '' : danger ? 'danger' : isLeading ? 'leading' : '';
+    html += `
+      <div class="player-row ${isOut ? 'out' : ''}">
+        <div class="player-meta">
+          <span class="player-label">${isLeading && !isOut ? '👑 ' : ''}${p}${isOut ? ' — Out' : ''}</span>
+          <span>
+            <span class="player-score ${scoreColor}">${scores[p]}</span>
+            <span class="score-limit">/ ${BUST}</span>
+          </span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+      </div>`;
+  });
+  sb.innerHTML = html;
+}
+
+function renderAlerts() {
+  const w = winner();
+  const wb = document.getElementById('winner-banner');
+  if (w) {
+    wb.style.display = 'block';
+    wb.innerHTML = `<div class="winner-banner"><div style="font-size:28px">🏆</div><h2>${w} wins!</h2><p>Last one standing • ${history.length} rounds</p></div>`;
+  } else {
+    wb.style.display = 'none';
+  }
+}
+
+function renderRoundEntry() {
+  const elim = eliminated();
+  const roundNum = history.length + 1;
+  const re = document.getElementById('round-entry');
+
+  const alivePlayers = activePlayers.filter(p => !elim.includes(p));
+
+  const canLock = alivePlayers.every(p => {
+    const e = pendingEntry[p];
+    if (!e) return false;
+    if (e.type === 'win' || e.type === 'scoop' || e.type === 'midscoop') return true;
+    return e.type === 'manual' && e.value !== '' && !isNaN(Number(e.value)) && Number(e.value) >= 0;
+  });
+
+  // W validation: exactly one winner among alive players
+  const winCount = alivePlayers.filter(p => pendingEntry[p] && pendingEntry[p].type === 'win').length;
+  const warnMsg = canLock && winCount !== 1
+    ? (winCount === 0 ? '⚠️ No winner selected' : `⚠️ ${winCount} winners selected — only 1 allowed`)
+    : '';
+
+  let html = `<div class="section-label">ROUND ${roundNum}</div>`;
+
+  if (warnMsg) {
+    html += `<div class="warn-alert">${warnMsg}</div>`;
+  }
+
+  activePlayers.forEach(p => {
+    const isOut = elim.includes(p);
+    const e = pendingEntry[p] || { type: null, value: '' };
+    if (isOut) {
+      html += `<div class="player-entry" style="opacity:0.3"><div class="entry-label">${p.toUpperCase()} — OUT</div></div>`;
+      return;
+    }
+    const previewText = e.type === 'win' ? '+0' : e.type === 'scoop' ? `+${SCOOP}` : e.type === 'midscoop' ? `+${MIDSCOOP}` : e.value !== '' ? `+${e.value}` : '—';
+    const previewClass = e.type === 'win' ? 'w' : e.type === 'scoop' ? 's' : e.type === 'midscoop' ? 'ms' : '';
+    html += `
+      <div class="player-entry">
+        <div class="entry-label">${p.toUpperCase()}</div>
+        <div class="btn-row">
+          <button class="action-btn w ${e.type==='win'?'active':''}" onclick="setEntry('${p}','win')">W</button>
+          <button class="action-btn s ${e.type==='scoop'?'active':''}" onclick="setEntry('${p}','scoop')">S</button>
+          <button class="action-btn ms ${e.type==='midscoop'?'active':''}" onclick="setEntry('${p}','midscoop')">MS</button>
+          <input class="pts-input" inputmode="numeric" pattern="[0-9]*" placeholder="pts"
+            value="${e.type==='manual' ? e.value : ''}"
+            oninput="setManual('${p}', this.value)"
+            id="input-${p.replace(/\s/g,'_')}"
+          />
+          <span class="pts-preview ${previewClass}" id="preview-${p.replace(/\s/g,'_')}">${previewText}</span>
+        </div>
+      </div>`;
+  });
+
+  const lockDisabled = !canLock || winCount !== 1;
+  html += `<div style="margin-top:8px"><button class="btn-primary" id="lock-btn" onclick="lockRound()" ${lockDisabled?'disabled':''}>Lock Round</button></div>`;
+  re.innerHTML = html;
+}
+
+function renderLog() {
+  const logDiv = document.getElementById('round-log');
+  if (!history.length) { logDiv.innerHTML = '<p class="empty-state">No rounds yet.</p>'; return; }
+
+  const cumulative = [];
+  const running = Object.fromEntries(activePlayers.map(p => [p, 0]));
+  history.forEach(round => {
+    activePlayers.forEach(p => { if (round[p] != null) running[p] += round[p]; });
+    cumulative.push({ ...running });
+  });
+
+  let html = `<div class="section-label">ROUND LOG</div><div class="overflow-x"><table class="log-table"><thead><tr><th>#</th>${activePlayers.map(p=>`<th>${p}</th>`).join('')}</tr></thead><tbody>`;
+  [...history].reverse().forEach((round, ri) => {
+    const rNum = history.length - ri;
+    const cum = cumulative[history.length - 1 - ri];
+    html += `<tr><td>${rNum}</td>`;
+    activePlayers.forEach(p => {
+      const delta = round[p];
+      if (delta == null) { html += `<td><span style="color:#374151">—</span></td>`; return; }
+      const cls = delta === 0 ? 'w' : delta === SCOOP ? 's' : delta === MIDSCOOP ? 'ms' : '';
+      const label = delta === 0 ? 'W' : delta === SCOOP ? 'S' : delta === MIDSCOOP ? 'MS' : `+${delta}`;
+      html += `<td><div class="delta ${cls}">${label}</div><div class="running">${cum[p]}</div></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  logDiv.innerHTML = html;
+}
+
+// ── ENTRY ACTIONS ───────────────────────────────────────────────────────────
+
+function setEntry(player, type) {
+  if (!pendingEntry[player]) pendingEntry[player] = { type: null, value: '' };
+  pendingEntry[player].type = type;
+  if (type !== 'manual') pendingEntry[player].value = '';
+  renderRoundEntry();
+  updateSaveBtn();
+  if (type === 'manual') {
+    const inp = document.getElementById('input-' + player.replace(/\s/g,'_'));
+    if (inp) inp.focus();
+  }
+}
+
+function setManual(player, value) {
+  if (!pendingEntry[player]) pendingEntry[player] = { type: 'manual', value: '' };
+  pendingEntry[player].type = 'manual';
+  pendingEntry[player].value = value;
+  const span = document.getElementById('preview-' + player.replace(/\s/g,'_'));
+  if (span) {
+    span.textContent = value !== '' ? '+' + value : '—';
+    span.className = 'pts-preview';
+  }
+  // recheck lock button
+  const elim = eliminated();
+  const alivePlayers = activePlayers.filter(p => !elim.includes(p));
+  const canLock = alivePlayers.every(p => {
+    const e = pendingEntry[p];
+    if (!e) return false;
+    if (e.type === 'win' || e.type === 'scoop' || e.type === 'midscoop') return true;
+    return e.type === 'manual' && e.value !== '' && !isNaN(Number(e.value)) && Number(e.value) >= 0;
+  });
+  const winCount = alivePlayers.filter(p => pendingEntry[p] && pendingEntry[p].type === 'win').length;
+  const lockBtn = document.getElementById('lock-btn');
+  if (lockBtn) lockBtn.disabled = !canLock || winCount !== 1;
+  updateSaveBtn();
+}
+
+function lockRound() {
+  const elim = eliminated();
+  const alivePlayers = activePlayers.filter(p => !elim.includes(p));
+
+  // Enforce exactly one winner
+  const winCount = alivePlayers.filter(p => pendingEntry[p] && pendingEntry[p].type === 'win').length;
+  if (winCount !== 1) {
+    renderRoundEntry(); // re-render to show warning
+    return;
+  }
+
+  const round = {};
+  activePlayers.forEach(p => {
+    if (elim.includes(p)) { round[p] = null; return; }
+    const e = pendingEntry[p];
+    if (e.type === 'win') round[p] = 0;
+    else if (e.type === 'scoop') round[p] = SCOOP;
+    else if (e.type === 'midscoop') round[p] = MIDSCOOP;
+    else round[p] = Number(e.value);
+  });
+
+  const prevScores = { ...scores };
+  activePlayers.forEach(p => { if (round[p] != null) scores[p] += round[p]; });
+  history.push(round);
+
+  // bust alert
+  const justBusted = activePlayers.filter(p => prevScores[p] <= BUST && scores[p] > BUST);
+  const alertDiv = document.getElementById('bust-alert');
+  if (justBusted.length) {
+    alertDiv.style.display = 'block';
+    alertDiv.innerHTML = `<div class="alert">💥 ${justBusted.join(', ')} ${justBusted.length > 1 ? 'are' : 'is'} out — went over ${BUST}!</div>`;
+    setTimeout(() => { alertDiv.style.display = 'none'; }, 3500);
+  }
+
+  pendingEntry = buildBlankEntry();
+  document.getElementById('undo-btn').disabled = false;
+  saveDraft();
+  renderAll();
+  showTab('score');
+}
+
+function undoRound() {
+  if (!history.length) return;
+  const last = history[history.length - 1];
+  history.pop();
+  activePlayers.forEach(p => { if (last[p] != null) scores[p] -= last[p]; });
+  pendingEntry = {};
+  activePlayers.forEach(p => {
+    const val = last[p];
+    if (val == null) { pendingEntry[p] = { type: null, value: '' }; return; }
+    if (val === 0) pendingEntry[p] = { type: 'win', value: '' };
+    else if (val === SCOOP) pendingEntry[p] = { type: 'scoop', value: '' };
+    else if (val === MIDSCOOP) pendingEntry[p] = { type: 'midscoop', value: '' };
+    else pendingEntry[p] = { type: 'manual', value: String(val) };
+  });
+  document.getElementById('undo-btn').disabled = history.length === 0;
+  saveDraft();
+  renderAll();
+  showTab('round');
+}
+
+// ── SAVE / HISTORY ──────────────────────────────────────────────────────────
+
+function saveGame() {
+  if (hasPendingEntry()) return; // safety guard
+  const w = winner();
+  const now = new Date();
+  const dateKey = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  const saved = JSON.parse(localStorage.getItem('rummy_history') || '[]');
+  const gamesToday = saved.filter(g => g.dateKey === dateKey).length + 1;
+
+  const game = {
+    id: Date.now(),
+    dateKey,
+    timeStr,
+    gameNum: gamesToday,
+    players: [...activePlayers],
+    winner: w || null,
+    rounds: history.length,
+    finalScores: { ...scores },
+    history: JSON.parse(JSON.stringify(history))
+  };
+
+  saved.unshift(game);
+  localStorage.setItem('rummy_history', JSON.stringify(saved));
+  clearDraft();
+  alert(`Game ${gamesToday} saved!`);
+}
+
+function showHistory() {
+  const saved = JSON.parse(localStorage.getItem('rummy_history') || '[]');
+  const list = document.getElementById('history-list');
+  if (!saved.length) {
+    list.innerHTML = '<p class="empty-state">No saved games yet.</p>';
+  } else {
+    const byDate = {};
+    saved.forEach(g => {
+      if (!byDate[g.dateKey]) byDate[g.dateKey] = [];
+      byDate[g.dateKey].push(g);
+    });
+    let html = '';
+    Object.entries(byDate).forEach(([date, games]) => {
+      html += `<div class="section-label" style="margin-top:8px">${date}</div>`;
+      games.forEach(g => {
+        // Sort players by final score ascending
+        const sortedPlayers = g.players.slice().sort((a, b) => (g.finalScores[a] || 0) - (g.finalScores[b] || 0));
+        const scoresHtml = sortedPlayers.map(p => {
+          const isWinner = p === g.winner;
+          return `<div class="score-row ${isWinner ? 'winner-row' : ''}">
+            <span>${isWinner ? '🏆 ' : ''}${p}</span>
+            <span>${g.finalScores[p] ?? '—'} pts</span>
+          </div>`;
+        }).join('');
+
+        html += `<div class="game-card" onclick="toggleGameScores('scores-${g.id}')">
+          <div class="game-date">Game ${g.gameNum} &nbsp;·&nbsp; ${g.timeStr}</div>
+          <div class="game-title">${g.winner ? `<span class="game-winner">🏆 ${g.winner}</span> wins` : 'No winner recorded'}</div>
+          <div class="game-meta">${g.rounds} rounds &nbsp;·&nbsp; ${g.players.join(', ')}</div>
+          <div class="game-scores" id="scores-${g.id}">${scoresHtml}</div>
+        </div>`;
+      });
+    });
+    list.innerHTML = html;
+  }
+  showScreen('history');
+}
+
+function toggleGameScores(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+// ── RESET ───────────────────────────────────────────────────────────────────
+
+function resetClick() {
+  const btn = document.getElementById('reset-btn');
+  if (resetConfirm) {
+    clearTimeout(resetTimer);
+    resetConfirm = false;
+    btn.textContent = 'Reset';
+    btn.className = 'btn-danger';
+    scores = Object.fromEntries(activePlayers.map(p => [p, 0]));
+    history = [];
+    pendingEntry = buildBlankEntry();
+    clearDraft();
+    document.getElementById('undo-btn').disabled = true;
+    document.getElementById('bust-alert').style.display = 'none';
+    document.getElementById('winner-banner').style.display = 'none';
+    renderAll();
+    showTab('round');
+  } else {
+    resetConfirm = true;
+    btn.textContent = 'Confirm?';
+    btn.className = 'btn-danger confirm';
+    resetTimer = setTimeout(() => {
+      resetConfirm = false;
+      btn.textContent = 'Reset';
+      btn.className = 'btn-danger';
+    }, 3000);
+  }
+}
+
+// ── NAV ─────────────────────────────────────────────────────────────────────
+
+function showTab(tab) {
+  ['score','round','log'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.nav-btn').forEach((btn, i) => {
+    btn.className = 'nav-btn' + (['score','round','log'][i] === tab ? ' active' : '');
+  });
+  if (tab === 'round') renderRoundEntry();
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'history') showHistory();
+}
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Add history button
+  const header = document.querySelector('#screen-game .header');
+  const hBtn = document.createElement('button');
+  hBtn.className = 'btn-secondary';
+  hBtn.style.cssText = 'width:auto;padding:6px 14px;font-size:12px;margin-top:8px;';
+  hBtn.textContent = '📋 History';
+  hBtn.onclick = () => showScreen('history');
+  header.appendChild(hBtn);
+
+  // Try to restore draft
+  if (loadDraft()) {
+    showScreen('game');
+    renderAll();
+    showTab('score');
+    // Show a small notice
+    const alertDiv = document.getElementById('bust-alert');
+    alertDiv.style.display = 'block';
+    alertDiv.innerHTML = `<div class="warn-alert">📋 Game restored from last session</div>`;
+    setTimeout(() => { alertDiv.style.display = 'none'; }, 3000);
+  } else {
+    initSetup();
+  }
+});
+</script>
+</body>
+</html>

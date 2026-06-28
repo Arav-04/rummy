@@ -206,18 +206,21 @@
 </div>
 
 <script>
-const DEFAULT_PLAYERS = ["Amais", "Monikka", "Shafeekh", "Sindhu", "Nussu"];
-const OLD_DEFAULT_PLAYERS = ["Amais", "Mama", "Papa", "Big Papa", "Big Mama"];
+const DEFAULT_PLAYERS = ["Amais", "Sindhu", "Shafeekh", "Monikka", "Nussu"];
+// Any of these are auto-generated defaults the user never deliberately chose,
+// so if one is saved we replace it with the current DEFAULT_PLAYERS order.
+const AUTO_DEFAULTS = [
+  ["Amais", "Mama", "Papa", "Big Papa", "Big Mama"],
+  ["Amais", "Monikka", "Shafeekh", "Sindhu", "Nussu"]
+];
 const SCOOP = 25, MIDSCOOP = 50, BUST = 250;
 
 // Load saved player names or fall back to defaults.
-// Migrate the old hardcoded default set to the new distinct set (better for voice input).
 let _storedPlayers = JSON.parse(localStorage.getItem('rummy_players') || 'null');
-if (_storedPlayers && Array.isArray(_storedPlayers) &&
-    _storedPlayers.length === OLD_DEFAULT_PLAYERS.length &&
-    _storedPlayers.every((n, i) => n === OLD_DEFAULT_PLAYERS[i])) {
-  _storedPlayers = null; // looks like the old default — migrate
-}
+const _isAutoDefault = Array.isArray(_storedPlayers) && AUTO_DEFAULTS.some(set =>
+  set.length === _storedPlayers.length && set.every((n, i) => n === _storedPlayers[i])
+);
+if (_isAutoDefault) _storedPlayers = null; // migrate to current default order
 let ALL_PLAYERS = _storedPlayers || [...DEFAULT_PLAYERS];
 if (!_storedPlayers) localStorage.setItem('rummy_players', JSON.stringify(ALL_PLAYERS));
 
@@ -819,15 +822,16 @@ let recognizing = false;
 let sttReviewMode = false;
 let sttTranscript = '';
 let sttLastSummary = '';
+let sttRawTranscript = '';
 let sttRestarts = 0;
 
 // Known alternate spellings STT tends to produce, keyed by canonical lowercased name.
 // Only applied when a current player's name matches the key, so renames stay safe.
 const NAME_ALIASES = {
-  'amais':    ['amaze', 'amaise', 'ameys', 'amis', 'amace', 'amais', 'amaes', 'ameis'],
+  'amais':    ['amaze', 'amaise', 'ameys', 'amis', 'amace', 'amais', 'amaes', 'ameis', 'amos', 'amass', 'imis', 'imiss', 'amace', 'amais'],
   'monikka':  ['monica', 'monika', 'moneeka', 'monnika', 'monikka', 'monca', 'manika'],
   'shafeekh': ['shafique', 'shafeek', 'shafik', 'shafiq', 'shafeeq', 'shaffeek', 'shafee', 'chafique', 'shaffique', 'shafeekh', 'shafeekha', 'shafic'],
-  'sindhu':   ['sindu', 'sindoo', 'cindu', 'sindhoo', 'sindhu', 'sinduh', 'cindhu'],
+  'sindhu':   ['sindu', 'sindoo', 'cindu', 'sindhoo', 'sindhu', 'sinduh', 'cindhu', 'sandhu', 'sindh', 'sindi', 'syndhu', 'cindy', 'sendhu'],
   'nussu':    ['nusu', 'nusoo', 'noosu', 'nasu', 'nussoo', 'nussu', 'nuzu', 'newsu']
 };
 
@@ -1033,7 +1037,7 @@ function renderSttBar() {
       <div class="stt-live" id="stt-live">${sttTranscript ? escapeHtml(sttTranscript) : 'Listening… e.g. “Amais scoot, Monikka win, Sindhu 53”'}</div>`;
   } else if (sttReviewMode) {
     bar.innerHTML = `
-      <div class="stt-review">🎙 Heard: ${escapeHtml(sttLastSummary)}<div class="stt-review-sub">Fix anything below, then Confirm.</div></div>
+      <div class="stt-review">🎙 Heard: “${escapeHtml(sttRawTranscript || '—')}”<div class="stt-review-sub">Parsed → ${escapeHtml(sttLastSummary)}. Fix anything below, then Confirm.</div></div>
       <button class="btn-mic" onclick="startListening()">🔁 Re-record</button>`;
   } else {
     bar.innerHTML = `<button class="btn-mic" onclick="startListening()">🎙 Tell Scores</button>`;
@@ -1115,6 +1119,7 @@ function finalizeListening(transcript) {
       : { type: null, value: '' };
   });
 
+  sttRawTranscript = (transcript || '').trim();
   sttLastSummary = buildParsedSummary(parsed, alive);
   sttReviewMode = true;
   renderRoundEntry();      // re-renders the form + STT bar (review state)

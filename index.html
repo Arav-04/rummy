@@ -979,7 +979,7 @@ function claimIdentity(name) {
       MY_NAME = name;
       startSync();
     })
-    .catch(() => alert('Network processing failure."));
+    .catch(() => alert('Network processing failure.'));
 }
 
 function onGameSync(snap) { GAME = snap.val(); routeUI(GAME); }
